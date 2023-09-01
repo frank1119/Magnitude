@@ -12,25 +12,31 @@
 #define UNREFERENCED_PARAMETER(P) (P)
 
 
+
+
 juce::AudioProcessor::BusesProperties MagnitudeAudioProcessor::getBusProps()
 {
 	auto z = juce::AudioProcessor::BusesProperties();
 
 	for (int i = 0; i < MAXBUSES; i++)
+#if use32 ==1
 		z.addBus(true, std::string("Bus ").append(BUSCHARS.substr(i, 1)), juce::AudioChannelSet::discreteChannels(MAXCHANNELS), true);
+#else
+		z.addBus(true, std::string("Bus ").append(BUSCHARS.substr(i, 1)), juce::AudioChannelSet::create7point1(), true);
+#endif
 	return z;
 }
 
-//==============================================================================
 MagnitudeAudioProcessor::MagnitudeAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
 	: AudioProcessor(getBusProps())
 #endif
+
 {
 	juce::AudioParameterIntAttributes ia = juce::AudioParameterIntAttributes().withAutomatable(true);
 
 	juce::ParameterID rrid("Refresh rate", 0);
-	addParameter(refreshRate = new juce::AudioParameterInt(rrid, "Refresh rate", 10, 30, 30, ia));
+	addParameter(refreshRate = new juce::AudioParameterInt(rrid, "Refresh rate", 1, 30, 15, ia));
 
 	refreshRate->addListener(this);
 
@@ -61,8 +67,6 @@ juce::AudioProcessorParameter* MagnitudeAudioProcessor::getBypassParameter() con
 {
 	return refreshRate;
 }
-
-//==============================================================================
 
 const juce::String MagnitudeAudioProcessor::getName() const
 {
@@ -130,7 +134,6 @@ void MagnitudeAudioProcessor::changeProgramName(int index, const juce::String& n
 	UNREFERENCED_PARAMETER(newName);
 }
 
-//==============================================================================
 void MagnitudeAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
 	UNREFERENCED_PARAMETER(sampleRate);
@@ -142,6 +145,8 @@ void MagnitudeAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
 		{
 			int chNum = i + (j * MAXCHANNELS);
 			db[chNum]->sendValueChangedMessageToListeners(0.0);
+			dbs[chNum] = 0.0;
+			prevDbs[chNum] = 0.0;
 		}
 }
 
@@ -150,6 +155,8 @@ void MagnitudeAudioProcessor::releaseResources()
 	// When playback stops, you can use this as an opportunity to free up any
 	// spare memory, etc.
 }
+
+
 
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool MagnitudeAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -163,17 +170,25 @@ bool MagnitudeAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts)
 	// Some plugin hosts, such as certain GarageBand versions, will only
 	// load plugins that support stereo bus layouts.
 
-
 	for (int j = 0; j < MAXBUSES; j++)
-		if (layouts.getNumChannels(true, j) > MAXCHANNELS 
-			|| layouts.getNumChannels(true, j) <= 0
+	{
+		if (layouts.getNumChannels(true, j) > MAXCHANNELS
+			|| layouts.getNumChannels(true, j) < 1
 			|| layouts.getNumChannels(false, j) != 0
 			)
 			return false;
+
+		if (!channelToParamMappings.contains(layouts.getBuses(true)[j].getDescription().toStdString()))
+		{
+			return false;
+		}
+	}
 	return true;
 #endif
 }
+
 #endif
+
 
 void MagnitudeAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
@@ -189,10 +204,6 @@ void MagnitudeAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
 			int chNum = i + (j * MAXCHANNELS);
 
 			dbs[chNum] = _input.getMagnitude(i, 0, _input.getNumSamples());
-
-			//Smooth
-			//dbs[chNum] = (smthDbs[chNum] * fSmooth) + ((1.0f - fSmooth) * dbs[chNum]);
-			//smthDbs[chNum] = dbs[chNum];
 		}
 	}
 
@@ -229,7 +240,6 @@ void MagnitudeAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
 	*/
 }
 
-//==============================================================================
 bool MagnitudeAudioProcessor::hasEditor() const
 {
 	return true; // (change this to false if you choose to not supply an editor)
@@ -241,7 +251,6 @@ juce::AudioProcessorEditor* MagnitudeAudioProcessor::createEditor()
 	//return new juce::GenericAudioProcessorEditor(this);
 }
 
-//==============================================================================
 void MagnitudeAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
 	// This exports data from the plugin to the host
@@ -304,10 +313,6 @@ void MagnitudeAudioProcessor::parameterValueChanged(int parameterIndex, float ne
 		stopTimer();
 		int rr = (int)refreshRate->convertFrom0to1(newValue);
 		startTimerHz(rr);
-
-		//juce::AudioProcessorEditor* ae = getActiveEditor();
-		//if (ae != nullptr)
-		//	ae->repaint();
 	}
 
 	if (parameterIndex == 1)
@@ -315,8 +320,6 @@ void MagnitudeAudioProcessor::parameterValueChanged(int parameterIndex, float ne
 		int sm = (int)smoothing->convertFrom0to1(newValue);
 		fSmooth = ((float)sm) / 100.0f;
 	}
-
-	//adjustSmoothing();
 }
 
 void MagnitudeAudioProcessor::parameterGestureChanged(int parameterIndex, bool gestureIsStarting)
@@ -330,19 +333,24 @@ void MagnitudeAudioProcessor::parameterGestureChanged(int parameterIndex, bool g
 /// </summary>
 void MagnitudeAudioProcessor::timerCallback()
 {
+	juce::Array<juce::AudioChannelSet> arr = getBusesLayout().getBuses(true);
+
 	for (int j = 0; j < MAXBUSES; j++)
 	{
+
+		ChannelToParamMap map = channelToParamMappings.at(arr[j].getDescription().toStdString());
 		int chCnt = getChannelCountOfBus(true, j);
 		for (auto i = 0; i < chCnt; i++)
 		{
-			int chNum = (j * MAXCHANNELS) + i;
+			int chanNum = (j * MAXCHANNELS) + i;
+			int paramNum = map.cToPMap[i];
 
-			dbs[chNum] = (smthDbs[chNum] * fSmooth) + ((1.0f - fSmooth) * dbs[chNum]);
-			smthDbs[chNum] = dbs[chNum];
+			dbs[chanNum] = (smthDbs[chanNum] * fSmooth) + ((1.0f - fSmooth) * dbs[chanNum]);
+			smthDbs[chanNum] = dbs[chanNum];
 
-			if (prevDbs[chNum] != dbs[chNum])
-				db[MAPPING[chCnt-1][i] +(j * MAXCHANNELS)]->sendValueChangedMessageToListeners(dbs[chNum]);
-			prevDbs[chNum] = dbs[chNum];
+			if (prevDbs[chanNum] != dbs[chanNum])
+				db[paramNum + (j * MAXCHANNELS)]->sendValueChangedMessageToListeners(dbs[chanNum]);
+			prevDbs[chanNum] = dbs[chanNum];
 		}
 	}
 }

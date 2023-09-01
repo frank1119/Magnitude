@@ -9,32 +9,18 @@
 #pragma once
 
 #include <JuceHeader.h>
-
-#define MAXCHANNELS 8
-#define MAXBUSES 4
-const std::string BUSCHARS("123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-
-// Workaround for the layout mappings channel order and the order in the buffer
-const int MAPPING[MAXCHANNELS][MAXCHANNELS] = {
-	{ 0, 1, 2, 3, 4, 5, 6 ,7 },
-	{ 0, 1, 2, 3, 4, 5, 6 ,7 },
-	{ 0, 1, 2, 3, 4, 5, 6 ,7 },
-	{ 0, 1, 2, 3, 4, 5, 6 ,7 },
-	{ 0, 1, 2, 3, 4, 5, 6 ,7 },
-	{ 0, 1, 2, 3, 4, 5, 6 ,7 },
-	{ 0, 1, 2, 5, 6, 3, 4 ,7 },
-	{ 0, 1, 2, 3, 6, 7, 4 ,5 }
-};
+#include "ChannelToParamMap.h"
 
 
 //==============================================================================
 /**
 */
 class MagnitudeAudioProcessor : public juce::AudioProcessor, public juce::AudioProcessorParameter::Listener, public juce::Timer
-	#if JucePlugin_Enable_ARA
+#if JucePlugin_Enable_ARA
 	, public juce::AudioProcessorARAExtension
-	#endif
+#endif
 {
+
 public:
 	//==============================================================================
 	MagnitudeAudioProcessor();
@@ -65,7 +51,6 @@ public:
 
 	// Smoothing factor
 	float fSmooth = 0.0f;
-
 	// For restoring the editor-size
 	juce::Rectangle<int> bounds = juce::Rectangle(0, 0, 350, 150);
 
@@ -73,9 +58,11 @@ public:
 	void prepareToPlay(double sampleRate, int samplesPerBlock) override;
 	void releaseResources() override;
 
-	#ifndef JucePlugin_PreferredChannelConfigurations
+	double processSample(float newSample, double curEnvVal);
+
+#ifndef JucePlugin_PreferredChannelConfigurations
 	bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
-	#endif
+#endif
 
 	void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
@@ -103,6 +90,7 @@ public:
 	void setStateInformation(const void* data, int sizeInBytes) override;
 
 	static juce::AudioProcessor::BusesProperties getBusProps();
+
 private:
 	void timerCallback();
 	//==============================================================================
