@@ -16,10 +16,10 @@ MagnitudeAudioProcessorEditor::MagnitudeAudioProcessorEditor(MagnitudeAudioProce
 	: AudioProcessorEditor(&p), audioProcessor(p)
 
 {
-	setSize(p.bounds.getWidth(),p.bounds.getHeight());
+	setSize(p.Bounds.getWidth(),p.Bounds.getHeight());
 
-	sldRefreshRate.reset(new AttachedSlider(*p.refreshRate));
-	sldSmoothing.reset(new AttachedSlider(*p.smoothing));
+	sldRefreshRate.reset(new AttachedSlider(*(juce::RangedAudioParameter*)p.RefreshRateParameter));
+	sldSmoothing.reset(new AttachedSlider(*(juce::RangedAudioParameter*)p.SmoothingParameter));
 
 	addAllAndMakeVisible(*this, *sldRefreshRate, *sldSmoothing);
 	performLayout(getLocalBounds(), *sldRefreshRate, *sldSmoothing);
@@ -41,12 +41,10 @@ void MagnitudeAudioProcessorEditor::paint(juce::Graphics& g)
 	
 	//if (resizing)
 //		performLayout(getLocalBounds(), *this->sldRefreshRate.get(), *this->sldSmoothing);
-	//resizing = false;
 }
 
 void MagnitudeAudioProcessorEditor::resized()
 {
-	audioProcessor.bounds = getLocalBounds();
+	audioProcessor.Bounds = getLocalBounds();
 	performLayout(getLocalBounds(), *sldRefreshRate, *sldSmoothing);
-	//resizing = true;
 }
