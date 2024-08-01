@@ -4,7 +4,7 @@
 
 
 // In some configurations the channels are not at the expected index
-#if use32 ==1
+#if MAXCHANNELS == 32
 const std::unordered_map<std::string, ChannelToParamMap> channelToParamMappings = [] {
 	std::unordered_map<std::string, ChannelToParamMap> layouts;
 	ChannelToParamMap Mono = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7,8,9,10,11,12,13,14,15, 16, 17, 18, 19,20,21,22,23,24,25,26,27,28,29,30,31 });
@@ -39,11 +39,12 @@ const std::unordered_map<std::string, ChannelToParamMap> channelToParamMappings 
 	return layouts;
 	}();
 #else
+#if MAXCHANNELS == 16
 const std::unordered_map<std::string, ChannelToParamMap> channelToParamMappings = [] {
 	std::unordered_map<std::string, ChannelToParamMap> layouts;
 	ChannelToParamMap Mono = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7,8,9,10,11,12,13,14,15 });
 	ChannelToParamMap Stereo = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7,8,9,10,11,12,13,14,15 });
-	ChannelToParamMap LCR = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7,8,9,10,11,12,13,14,15, });
+	ChannelToParamMap LCR = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7,8,9,10,11,12,13,14,15 });
 	ChannelToParamMap Quadro = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7, 8,9,10,11,12,13,14,15 });
 
 	ChannelToParamMap Sur5_0 = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7, 8,9,10,11,12,13,14,15 });
@@ -72,5 +73,33 @@ const std::unordered_map<std::string, ChannelToParamMap> channelToParamMappings 
 	};
 	return layouts;
 	}();
+#else
+#if MAXCHANNELS == 2
+const std::unordered_map<std::string, ChannelToParamMap> channelToParamMappings = [] {
+	std::unordered_map<std::string, ChannelToParamMap> layouts;
+	ChannelToParamMap Mono = ChannelToParamMap({ 0, 1});
+	ChannelToParamMap Stereo = ChannelToParamMap({ 0, 1});
+	ChannelToParamMap LCR = ChannelToParamMap({ 0, 1 });
+	ChannelToParamMap Quadro = ChannelToParamMap({ 0, 1});
+
+	ChannelToParamMap Sur5_0 = ChannelToParamMap({ 0, 1});
+	ChannelToParamMap Sur5_1 = ChannelToParamMap({ 0, 1});
+	ChannelToParamMap Sur7_0 = ChannelToParamMap({ 0, 1});
+	ChannelToParamMap Sur7_1 = ChannelToParamMap({ 0, 1});
+
+	ChannelToParamMap Ambi2nd = ChannelToParamMap({ 0, 1});
+	ChannelToParamMap Ambi3rd = ChannelToParamMap({ 0, 1});
+	ChannelToParamMap Ambi4th = ChannelToParamMap({ 0, 1});
+
+	ChannelToParamMap Discr32 = ChannelToParamMap({ 0,1});
+
+	layouts = {
+		{"Mono", Mono},
+		{"Stereo", Stereo},
+	};
+	return layouts;
+	}();
+#endif
+#endif
 #endif
 

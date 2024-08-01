@@ -19,10 +19,16 @@ juce::AudioProcessor::BusesProperties MagnitudeAudioProcessor::getBusProps()
 	auto _busesProperties = juce::AudioProcessor::BusesProperties();
 
 	for (int i = 0; i < MAXBUSES; i++)
-#if use32 == 1
+#if MAXCHANNELS == 32
 		_busesProperties.addBus(true, std::string("Bus ").append(BUSCHARS.substr(i, 1)), juce::AudioChannelSet::discreteChannels(MAXCHANNELS), true);
 #else
+#if MAXCHANNELS == 16
 		_busesProperties.addBus(true, std::string("Bus ").append(BUSCHARS.substr(i, 1)), juce::AudioChannelSet::create7point1(), true);
+#else 
+#if MAXCHANNELS == 2
+		_busesProperties.addBus(true, std::string("Bus ").append(BUSCHARS.substr(i, 1)), juce::AudioChannelSet::stereo(), true);
+#endif
+#endif
 #endif
 	return _busesProperties;
 }
@@ -43,15 +49,14 @@ MagnitudeAudioProcessor::MagnitudeAudioProcessor()
 	addParameter(SmoothingParameter = new juce::AudioParameterInt(_smoothingParamID, "Smoothing", 0, 99, 0, _intAttribs));
 
 	SmoothingParameter->addListener(this);
-
+	
 	for (int j = 0; j < MAXBUSES; j++)
 		for (int i = 0; i < MAXCHANNELS; i++)
 		{
 			int _seqNum = i + (j * MAXCHANNELS);
-
 			std::string _paramName = std::string("Bus ").append(BUSCHARS.substr(j, 1)).append(" Magn. Out ").append(std::to_string(i + 1));
 			juce::ParameterID _dbParamID(_paramName.c_str(), 0);
-			addParameter(DbParameters[_seqNum] = new juce::AudioParameterFloat(_dbParamID, _paramName, 0.0f, 1.0f, 0.0f));
+			addParameter(DbParameters[_seqNum] = new juce::AudioParameterFloat(_dbParamID, _paramName, juce::NormalisableRange( 0.0f, 1.0f, 0.0f),0.0f, _paramName.c_str() ,juce::AudioProcessorParameter::inputMeter));
 			Dbs[_seqNum] = -1.0f;
 		}
 	startTimerHz(15);
@@ -60,11 +65,13 @@ MagnitudeAudioProcessor::MagnitudeAudioProcessor()
 MagnitudeAudioProcessor::~MagnitudeAudioProcessor()
 {
 	stopTimer();
+	SmoothingParameter->removeListener(this);
+	RefreshRateParameter->removeListener(this);
 }
 
 juce::AudioProcessorParameter* MagnitudeAudioProcessor::getBypassParameter() const
 {
-	return RefreshRateParameter;
+	return nullptr;
 }
 
 const juce::String MagnitudeAudioProcessor::getName() const
@@ -137,16 +144,6 @@ void MagnitudeAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
 {
 	UNREFERENCED_PARAMETER(sampleRate);
 	UNREFERENCED_PARAMETER(samplesPerBlock);
-
-	// Reset the parameters
-	for (int j = 0; j < MAXBUSES; j++)
-		for (int i = 0; i < MAXCHANNELS; i++)
-		{
-			int chNum = i + (j * MAXCHANNELS);
-			DbParameters[chNum]->sendValueChangedMessageToListeners(0.0);
-			Dbs[chNum] = 0.0;
-			PrevDbs[chNum] = 0.0;
-		}
 	//AudioParameterInt* apiRefreshRate = (AudioParameterInt*)RefreshRateParameter;
 	//startTimerHz(apiRefreshRate->convertFrom0to1( RefreshRateParameter->getValue()));
 }
@@ -177,10 +174,10 @@ bool MagnitudeAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts)
 			)
 			return false;
 
-		if (!channelToParamMappings.contains(layouts.getBuses(true)[j].getDescription().toStdString()))
-		{
-			return false;
-		}
+		//if (!channelToParamMappings.contains(layouts.getBuses(true)[j].getDescription().toStdString()))
+		//{
+		//	return false;
+		//}
 	}
 	return true;
 #endif
@@ -191,8 +188,6 @@ bool MagnitudeAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts)
 void MagnitudeAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
 	UNREFERENCED_PARAMETER(midiMessages);
-
-
 	juce::ScopedNoDenormals noDenormals;
 
 	for (int j = 0; j < MAXBUSES; j++)
@@ -201,28 +196,27 @@ void MagnitudeAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
 		for (int i = 0; i < getChannelCountOfBus(true, j); i++)
 		{
 			int _chanNum = i + (j * MAXCHANNELS);
-
 			Dbs[_chanNum] = _sampleBusBuffer.getMagnitude(i, 0, _sampleBusBuffer.getNumSamples());
 		}
 	}
 
-	//for (auto i = 0; i < totalNumInputChannels; i++)
+	///for (auto i = 0; i < totalNumInputChannels; i++)
 	//		dbs[i] = buffer.getMagnitude(i, 0, buffer.getNumSamples());
-	/*
+	
 
-	auto totalNumInputChannels = getTotalNumInputChannels();
-	auto totalNumOutputChannels = getTotalNumOutputChannels();
-	*/
+	//auto totalNumInputChannels = getTotalNumInputChannels();
+	//auto totalNumOutputChannels = getTotalNumOutputChannels();
+	
 	// In case we have more outputs than inputs, this code clears any output
 	// channels that didn't contain input data, (because these aren't
 	// guaranteed to be empty - they may contain garbage).
 	// This is here to avoid people getting screaming feedback
 	// when they first compile a plugin, but obviously you don't need to keep
 	// this code if your algorithm always overwrites all the output channels.
-	/*
-	for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-		buffer.clear(i, 0, buffer.getNumSamples());
-	*/
+	
+	//for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+	//	buffer.clear(i, 0, buffer.getNumSamples());
+	
 	// This is the place where you'd normally do the guts of your plugin's
 	// audio processing...
 	// Make sure to reset the state if your inner loop is processing
@@ -247,13 +241,12 @@ bool MagnitudeAudioProcessor::hasEditor() const
 juce::AudioProcessorEditor* MagnitudeAudioProcessor::createEditor()
 {
 	return new MagnitudeAudioProcessorEditor(*this);
-	//return new juce::GenericAudioProcessorEditor(this);
+	//return new juce::GenericAudioProcessorEditor(*this);
 }
 
 void MagnitudeAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
 	// This exports data from the plugin to the host
-
 	MemoryOutputStream(destData, true).writeString("CFG"); // Force compatibility with the old config
 	MemoryOutputStream(destData, true).writeInt64(configVersion);
 	MemoryOutputStream(destData, true).writeFloat(RefreshRateParameter->getValue());
@@ -263,7 +256,6 @@ void MagnitudeAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 void MagnitudeAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
 	// This imports data from the host to the plugin
-
 	int _refreshRate = 5;
 
 	stopTimer();
@@ -312,7 +304,6 @@ void MagnitudeAudioProcessor::setStateInformation(const void* data, int sizeInBy
 			float _fSmoothing = stof(_sSmoothing);                                                // Display value
 
 
-
 			RefreshRateParameter->setValueNotifyingHost(apiRefreshRate->convertTo0to1(_fRefreshRate)); // Convert from display value
 			SmoothingParameter->setValueNotifyingHost(apiSmooth->convertTo0to1(_fSmoothing));     // Convert from display value
 
@@ -339,8 +330,17 @@ void MagnitudeAudioProcessor::setStateInformation(const void* data, int sizeInBy
 			break;
 		}
 	}
-	startTimerHz((int)_refreshRate);                                                              // Use display value. No storing needed.
 
+	for (int j = 0; j < MAXBUSES; j++)
+		for (int i = 0; i < MAXCHANNELS; i++)
+		{
+			int chNum = i + (j * MAXCHANNELS);
+			Dbs[chNum] = 0.0;
+			PrevDbs[chNum] = 0.0;
+			DbParameters[chNum]->setValueNotifyingHost(0.0);
+		}
+
+	startTimerHz((int)_refreshRate);                                                              // Use display value. No storing needed.
 }
 
 //==============================================================================
@@ -360,7 +360,6 @@ void MagnitudeAudioProcessor::parameterValueChanged(int parameterIndex, float ne
 		AudioParameterInt* apiRefreshRate = (AudioParameterInt*)RefreshRateParameter;
 		int _refreshRate = (int)apiRefreshRate->convertFrom0to1(newValue);
 		startTimerHz(_refreshRate);
-		//std::cout << "RefreshRate: " << _refreshRate << std::endl;
 		break;
 	}
 	case 1:
@@ -368,7 +367,6 @@ void MagnitudeAudioProcessor::parameterValueChanged(int parameterIndex, float ne
 		AudioParameterInt* apiSmooth = (AudioParameterInt*)SmoothingParameter;
 		int _Smoothing = (int)apiSmooth->convertFrom0to1(newValue);
 		Smoothing = ((float)_Smoothing) / 100.0f;
-		//std::cout << "fSmooth: " << Smoothing << std::endl;
 		break;
 	}
 	}
@@ -386,7 +384,6 @@ void MagnitudeAudioProcessor::parameterGestureChanged(int parameterIndex, bool g
 void MagnitudeAudioProcessor::timerCallback()
 {
 	juce::Array<juce::AudioChannelSet> _channelSets = getBusesLayout().getBuses(true);
-
 	for (int j = 0; j < MAXBUSES; j++)
 	{
 		ChannelToParamMap _map = channelToParamMappings.at(_channelSets[j].getDescription().toStdString()); 
