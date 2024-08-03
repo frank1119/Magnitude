@@ -30,6 +30,9 @@ public:
 	// Parameters reporting to the host about the magnitude
 	juce::AudioParameterFloat* DbParameters[MAXCHANNELS * MAXBUSES] = { nullptr };
 
+	juce::AudioParameterInt* IDbParameters[MAXCHANNELS * MAXBUSES] = { nullptr };
+
+
 	// Frequency to report
 	juce::AudioProcessorParameter* RefreshRateParameter = { nullptr };
 
@@ -37,12 +40,12 @@ public:
 	juce::AudioProcessorParameter* SmoothingParameter = { nullptr };
 
 	// The magnitudes found during processing
-	float Dbs[MAXCHANNELS * MAXBUSES] = { 0.0f };
+	float Dbs[MAXCHANNELS * MAXBUSES] = { 0.0 };
 	// Smoothed magnitudes
-	float SmthDbs[MAXCHANNELS * MAXBUSES] = { 0.0f };
+	float SmthDbs[MAXCHANNELS * MAXBUSES] = { 0.0 };
 	// Previous smoothed magnitudes (makes sure that no unnecessary updates are boadcasted 
 	// to the host
-	float PrevDbs[MAXCHANNELS * MAXBUSES] = { 0.0f };
+	float PrevDbs[MAXCHANNELS * MAXBUSES] = { 0.0 };
 
 	// Smoothing factor
 	float Smoothing = 0.0f;
@@ -100,6 +103,7 @@ public:
 private:
 	virtual void timerCallback() override;
 	
+	int burst = 1;
 	//==============================================================================
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MagnitudeAudioProcessor)
 };
