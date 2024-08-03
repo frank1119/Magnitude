@@ -54,7 +54,7 @@ const std::unordered_map<std::string, ChannelToParamMap> channelToParamMappings 
 
 	ChannelToParamMap Ambi2nd = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7,8,9,10,11,12,13,14,15 });
 	ChannelToParamMap Ambi3rd = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7,8,9,10,11,12,13,14,15 });
-	ChannelToParamMap Ambi4th = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7,8,9,10,11,12,13,14,15 });
+	//ChannelToParamMap Ambi4th = ChannelToParamMap({ 0, 1, 2, 3, 4, 5, 6 ,7,8,9,10,11,12,13,14,15 });
 
 	ChannelToParamMap Discr32 = ChannelToParamMap({ 0,1, 2, 3, 4, 5, 6, 7,8,9, 10, 11, 12, 13, 14, 15 });
 
