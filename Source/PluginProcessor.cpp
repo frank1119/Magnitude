@@ -424,7 +424,7 @@ void MagnitudeAudioProcessor::timerCallback()
             {
                 p1->setValueNotifyingHost( Dbs[_chanNum]);
 
-                auto db =  floor( juce::Decibels::gainToDecibels(Dbs[_chanNum])*10);
+                auto db =  floor( (juce::Decibels::gainToDecibels(Dbs[_chanNum])*10)+0.5f);
                 p2->setValueNotifyingHost(p2->convertTo0to1(db));
             }
             PrevDbs[_chanNum] = Dbs[_chanNum];
